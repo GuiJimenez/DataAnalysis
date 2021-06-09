@@ -1,0 +1,296 @@
+# FCA
+
+## Tutorial Ganter (Conceptos)
+
+```{r}
+library('fcaR')
+library(readr)
+library(tidyverse)
+
+dataset_ganter <- read.csv("contextformal_tutorialGanter.csv", sep=";")
+View(dataset_ganter)
+rownames(dataset_ganter) <- dataset_ganter[[1]]
+
+dataset_ganter[[1]] <- NULL
+
+
+```
+
+Introduce el dataset anterior en un contexto formal de nombre fc_ganter usando el paquete fcaR Imprime el contexto formal (print). Haz plot también del contexto formal.
+```{r}
+
+
+fc_ganter <- FormalContext$new(dataset_ganter)
+print(fc_ganter)
+plot(fc_ganter)
+```
+Convierte a latex el contexto formal. En el Rmd introduce el código latex del contexto formal para visualizarlo.
+```{r}
+fc_ganter$to_latex()
+```
+
+Guarda todos los atributos en una variable attr_ganter usando los comandos del paquete fcaR
+
+```{r}
+attr_ganter <- fc_ganter$attributes
+attr_ganter
+```
+
+Guarda todos los objetos en una variable obj_ganter usando los comandos del paquete fcaR.
+
+```{r}
+obj_ganter <- fc_ganter$objects
+obj_ganter
+```
+
+¿De que tipo es la variable attr_ganter?
+
+```{r}
+class(attr_ganter)
+str(attr_ganter)
+```
+
+¿De que tipo es la variable attr_objetos?
+
+```{r}
+class(obj_ganter)
+str(obj_ganter)
+```
+
+
+Visualizando el contexto formal y utilizando los operadores de derivación, calcula dos conceptos sin usar el método que calcula todos los conceptos.
+
+```{r}
+S1 <- SparseSet$new(attributes = fc_ganter$objects)
+S1$assign(Leech = 1, Bream = 1)
+S1
+fc_ganter$intent(S1)
+
+S2 <- SparseSet$new(attributes = fc_ganter$attributes)
+S2$assign(needs.water = 1, lives.in.water = 1, can.move.around = 1)
+S2
+fc_ganter$extent(S2)
+```
+
+Usar método de fcaR para calcular todos los conceptos.
+```{r}
+fc_ganter$find_concepts()
+fc_ganter$concepts
+```
+
+¿Cuantos conceptos hemos calculado a partir del contexto formal?
+```{r}
+fc_ganter$concepts$size()
+```
+Muestra los 10 primeros conceptos.
+```{r}
+fc_ganter$concepts[1:10]
+```
+Dibuja el retículo de conceptos
+```{r}
+fc_ganter$concepts$plot()
+```
+Calcular y guardar en una variable el subretículo con soporte mayor que 0.3.
+```{r}
+idx <- which(fc_ganter$concepts$support() > 0.3)
+sublattice <- fc_ganter$concepts$sublattice(idx)
+sublattice
+
+```
+Dibujar dicho subretículo.
+```{r}
+plot(sublattice)
+```
+
+¿De que tipo es el subretículo obtenido?.
+```{r}
+
+class(sublattice)
+
+```
+Calcula el superior y el infimo de los conceptos calculados para fc_ganter y lo mismo para el subretículo anterior. Visualizalos.
+```{r}
+#Supremo de los conceptos calculados para fc_ganter
+C <- fc_ganter$concepts[1:15]
+C
+fc_ganter$concepts$supremum(C)
+
+#Infimo de los conceptos calculados para fc_ganter
+fc_ganter$concepts$infimum(C)
+
+#Supremo de los conceptos calculados para el subreticulo
+C2 <- sublattice[1:13]
+C2
+sublattice$supremum(C2)
+
+#Infimo de los conceptos calculados para el subreticulo
+sublattice$infimum(C2)
+
+```
+Grabar el objeto fc_ganter en un fichero fc_ganter.rds.
+```{r}
+saveRDS(fc_ganter, file = "fc_ganter.rds")
+
+
+```
+
+Elimina la variable fc_ganter. Carga otra vez en la variable del fichero anterior y comprueba que tenemos toda la información: atributos, conceptos, etc.
+```{r}
+fc_ganter <- NULL
+fc_ganter <- readRDS(file="fc_ganter.rds")
+```
+
+Calcula lo siguientes conjuntos usando los métodos del paquete fcaR:
+
+- {Bean}′
+- {livesonland}′
+- {twoseedleaves}′
+- {Frog,Maize}′
+- {needschlorophylltoproducefood,canmovearound}′
+- {livesinwater,livesonland}′
+- {needschlorophylltoproducefood,canmovearound}′
+```{r}
+c1 <- SparseSet$new(fc_ganter$objects)
+c1$assign(Bean=1)
+fc_ganter$intent(c1)
+
+```
+
+```{r}
+c2 <- SparseSet$new(fc_ganter$attributes)
+c2$assign(lives.on.hand=1)
+fc_ganter$extent(c2)
+```
+
+```{r}
+c3 <- SparseSet$new(fc_ganter$attributes)
+c3$assign(two.seed.leaves=1)
+fc_ganter$extent(c3)
+```
+
+```{r}
+c4 <- SparseSet$new(fc_ganter$objects)
+c4$assign(Frog=1, Maize=1)
+fc_ganter$intent(c4)
+```
+
+```{r}
+c5 <- SparseSet$new(fc_ganter$attributes)
+c5$assign(needs.chlorophyll=1,can.move.around=1)
+fc_ganter$extent(c5)
+```
+
+```{r}
+c6 <- SparseSet$new(fc_ganter$attributes)
+c6$assign(lives.in.water=1,lives.on.hand=1)
+fc_ganter$extent(c6)
+```
+
+## Tutorial Ganter (Implications)
+
+
+Introduce órdenes para cargar los paquetes necesarios para trabajar con FCA:
+```{r}
+library('fcaR')
+library(arules)
+```
+
+```{r}
+dataset_ganter <- read.csv("contextformal_tutorialGanter.csv", sep=";")
+View(dataset_ganter)
+rownames(dataset_ganter) <- dataset_ganter[[1]]
+
+dataset_ganter[[1]] <- NULL
+
+dataset_ganter
+```
+
+```{r}
+fc_ganter <- FormalContext$new(dataset_ganter)
+
+plot(fc_ganter)
+```
+
+```{r}
+print(fc_ganter)
+```
+
+Calcula las implicaciones del contexto y muestra las implicaciones en pantalla
+```{r}
+fc_ganter$find_implications()
+fc_ganter$implications
+```
+¿Cuantas implicaciones se han extraido?
+```{r}
+fc_ganter$implications$cardinality()
+```
+Calcula el tamaño de las implicaciones y la media de la parte y derecha de dichas implicaciones.
+```{r}
+tam <- fc_ganter$implications$size()
+colMeans(tam)
+```
+Aplica las reglas de la lógica de simplificación. ¿Cuantas implicaciones han aparecido tras aplicar la lógica?
+```{r}
+fc_ganter$implications$apply_rules(rules = "simplification")
+
+
+```
+```{r}
+fc_ganter$implications
+```
+
+```{r}
+fc_ganter$implications$cardinality()
+```
+Eliminar la redundancia en el conjunto de implicaciones. ¿Cuantas implicaciones han aparecido tras aplicar la lógica?
+```{r}
+fc_ganter$implications$apply_rules(rules = c("composition","generalization","simplification"))                                   
+```
+```{r}
+fc_ganter$implications
+```
+
+```{r}
+fc_ganter$implications$cardinality()
+```
+Calcular el cierre de los atributos needs.water, one.seed.leaf.
+```{r}
+S <- SparseSet$new(attributes = fc_ganter$attributes)
+S$assign(needs.water=1,one.seed.leaf=1)
+S
+fc_ganter$implications$closure(S)
+```
+Copia (clona) el conjunto fc_ganter en una variable fc1.
+```{r}
+fc1 <- fc_ganter$clone()
+plot(fc1)
+```
+
+```{r}
+fc1$implications
+```
+Elimina la implicación que está en la primera posición
+```{r}
+fc1$implications <- fc1$implications[-1]
+fc1$implications
+```
+Extrae de todas las implicaciones la que tengan en el lado izquierdo de la implicación el atributo one.seed.leaf.
+```{r}
+impIzd <- fc1$implications$filter(lhs="one.seed.leaf")
+impIzd
+```
+Obtén los atributos que aparezcan en todas las implicaciones.
+```{r}
+impIzd$get_attributes()
+```
+Calcula el soporte de la implicación 3
+```{r}
+impIzd$support()[3]
+```
+
+
+
+
+
+
+

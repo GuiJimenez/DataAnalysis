@@ -1,0 +1,106 @@
+# Regresión
+
+
+
+```{r setup, include=FALSE, warning=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(GGally)
+riesgos <- read_csv("riesgos.csv")
+
+```
+
+```{r}
+head(riesgos)
+glimpse(riesgos)
+#Al trabajar con este dataset podemos encontrarnos con el problema de que algunas columnas son de tipo char y por tanto no podemos trabajar con ellas
+```
+```{r}
+summary(riesgos)
+#Como podemos obsevar, de las columnas sexo, fumador y región no podemos extraer información ninguna si usamos summary, por lo tanto no usaríamos dichas columnas
+```
+```{r}
+copia_riesgos <- riesgos %>% select(edad,bmi,hijos,gastos)
+pairs(copia_riesgos)
+#Al ejecutar pairs se muestran las matrices de dispersión que representan las relaciones entre pares de variables cuantitativas. Por ejemplo, se puede observar en la matriz que relaciona la edad con los gastos que estos últimos aumentan respecto a la edad.
+```
+
+```{r}
+ggplot(data = copia_riesgos, mapping = aes(x = edad, y = gastos)) +
+geom_point(color = "firebrick", size = 2) +
+labs(title = "Diagrama de dispersión", x = "Edad", y = "Gastos") +
+theme_bw() +
+theme(plot.title = element_text(hjust = 0.5))
+```
+
+Histograma del atributo gastos
+```{r}
+hist(x=copia_riesgos$gastos )
+#A partir del histograma generado se deduce que la mayoria de los asegurados tienen unos gastos por debajo de los 15000€. 
+```
+Obten la matriz de correlación entre los atributos del dataset. ¿Qué atributos parecen estar más y menos relacionados? (cor).
+```{r}
+mat_correlacion <- cor(copia_riesgos)
+mat_correlacion
+#Según la matriz de correlación entre los atributos generada se podría decir que aquellos que más relacionados están son gastos y edad (0.2990082), y por otro lado, los que menos relacionados están serían hijos y bmi (0.0127589); dejando a un lado las correlaciones con valor 1, que son las correlaciones de los atributos con ellos mismos.
+```
+Visualiza las relaciones entre los atributos - scatterplot (plot, pairs, pairs.panels).
+```{r}
+
+
+ggpairs(copia_riesgos, lower = list(continuous = "smooth"), diag = list(continuous = "bar"), axisLabels = "none")
+#Teniendo en cuenta los valores obtenidos en la matriz de correlación anterior, la otra variable que deberia poner en el modelo sería la edad debido a que junto a gastos son las variables con mayor coeficiente de correlación de la matriz. 
+```
+
+Plantea un modelo lineal m1 de regresión entre gastos y otra variable (la que pienses mejor modela los gastos médicos de los asegurados).
+```{r}
+m1 <- lm(gastos~edad,data=copia_riesgos)
+m1
+summary(m1)
+#Con summary hemos obtenido los errores estándar de los coeficientes, los p-values, el estadístico F y R cuadrado. El p-value  permite determinar si los estimadores de los parámetros son significativamente distintos de 0, es decir, que contribuyen al modelo.
+#Tanto la ordenada en el origen como la pendiente son significativas dado que el p-value < 2.2e-16. Y el coeficiente de determinación R cuadrado indica que el modelo es capaz de explicar el 8% de la variabilidad presente en la variable gasto mediante la variable independiente edad. Destacar que cuanto mayor porcentaje del R cuadrado mejor será el modelo.
+#Por otro lado, el p-value obtenido en el test F (2.2e-16) determina que es superior a la varianza explicada por el modelo comparado con la varianza total, por lo que podemos aceptar el modelo como válido y útil.
+
+```
+
+
+Intenta un modelo m2 usando funciones polinómicas
+```{r}
+
+m2 <- lm(gastos~edad + I(gastos^2),data=copia_riesgos)
+m2
+summary(m2)
+#Con summary hemos obtenido los errores estándar de los coeficientes, los p-values, el estadístico F y R cuadrado. El p-value  permite determinar si los estimadores de los parámetros son significativamente distintos de 0, es decir, que contribuyen al modelo.
+#Tanto la ordenada en el origen como la pendiente son significativas dado que el p-value < 2.2e-16. Y el coeficiente de determinación R cuadrado indica que el modelo es capaz de explicar el 93% de la variabilidad presente en la variable gasto mediante la variable independiente edad. Destacar que cuanto mayor porcentaje del R cuadrado mejor será el modelo.
+#Por otro lado, el p-value obtenido en el test F (2.2e-16) determina que es superior a la varianza explicada por el modelo comparado con la varianza total, por lo que podemos aceptar el modelo como válido y útil.
+
+#De hecho el modelo se mejora en un 83%, lo que es una cifra bastante significativa de mejora
+
+```
+
+```{r}
+m3 <- lm(gastos~. ,data=copia_riesgos)
+m3
+summary(m3)
+
+#Según los datos extraídos a partir de summary se puede observar que aquellas variables más significativas son aquellas con un p-value más cercano a cero, como edad y bmi, los cuales incluso se marcan con tres estrellas que indican que se aproxima mucho a cero. En cuanto a eficiencia, según el R cuadrado obtenido, este modelo es capaz de explicar el 12% de la variabilidad presente en la variable gastos mediante las variables independientes edad,bmi e hijos, lo cual no es muy bueno que digamos porque para que el modelo fuera bueno este valor debería aproximarse a uno.
+
+```
+
+```{r}
+anova(m1,m2)
+anova(m1,m3)
+#Teniedo en cuenta los resultados que se obtienen al realizar anova con los modelos elaborados anteriormente, sería más interesante estudiar el modelo m2 ya que de los tres modelos es el que presenta un p-value más próximo a cero.
+```
+
+
+
+
+
+
+

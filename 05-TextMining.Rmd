@@ -1,0 +1,314 @@
+# Text Mining
+## Text Mining 1
+
+```{r}
+library(tm)
+library(pdftools)
+library(stringr)
+library(stringi)
+library(ggplot2)
+library(RColorBrewer)
+library(wordcloud)
+```
+
+
+Aplicar Text-Mining a estos pdf's - usando el material visto en clase. 
+```{r}
+directorio.textos <- file.path("C:", "pdfstextmining2021")
+directorio.textos
+dir(directorio.textos)
+```
+
+```{r}
+#Leer los nombres de los ficheros
+list.files <- DirSource(directorio.textos)
+
+texts <- lapply(list.files, pdf_text) 
+
+length(texts)
+texts
+texts[1]
+
+lapply(texts, length)
+
+```
+
+```{r}
+#Crear corpus
+my_corpus <- VCorpus(VectorSource(texts))
+my_corpus
+```
+```{r}
+#Definimos la función to_TDM que transforma un corpus en una matriz TDM (Term Document Matrix)
+to_TDM <- function(my_corpus){
+  my_tdm <- TermDocumentMatrix(my_corpus, 
+                                   control = 
+                                     list(removePunctuation = TRUE,
+                                          stopwords = TRUE,
+                                          tolower = TRUE,
+                                          stemming = FALSE,
+                                          removeNumbers = TRUE,
+                                          bounds = list(global = c(3, Inf))))
+}                               
+```
+
+
+
+```{r}
+#Convertimos a TDM el corpus
+my_tdm <- to_TDM(my_corpus)
+```
+
+Inspeccionamos los primeros términos, si se ve alguna cadena, borrar en el corpus, convertir a TDM, y así repetir el proceso
+```{r}
+inspect(my_tdm[1:20,])
+#En este caso no salen términos con caracteres especiales o cadenas
+```
+Calculamos los términos frecuentes a partir del TDM.
+```{r}
+frequent_terms <-  findFreqTerms(my_tdm, 
+              lowfreq = 25, 
+              highfreq = Inf)
+frequent_terms
+#Con los parámetros que le pasamos a findFreqTerms obtenemos los 20 términos más frecuentes 
+```
+
+```{r}
+matrix_tdm <- as.matrix(my_tdm[frequent_terms,])
+matrix_tdm
+
+#A partir de los términos más frecuentes sacamos una matriz de tdm en la que se puede ver cuántas veces aparece cada término en cada documento
+```
+Análisis de TDM
+```{r}
+freq <- rowSums(as.matrix(my_tdm))
+length(freq)
+```
+
+```{r}
+ord <- order(freq)
+dtms <- removeSparseTerms(my_tdm, 0.1) 
+# This makes a matrix that is 10% empty space, maximum.
+
+freq[head(ord)]
+```
+
+```{r}
+freq[tail(ord)]
+```
+
+```{r}
+findFreqTerms(my_tdm, lowfreq=30)
+```
+
+```{r}
+wf <- data.frame(word=names(freq), freq=freq)
+head(wf)
+```
+
+Plot de frecuencias
+```{r}
+p <- ggplot(subset(wf, freq>25), aes(word, freq))
+p <- p + geom_bar(stat="identity")
+p <- p + theme(axis.text.x=element_text(angle=45, hjust=1))
+p
+```
+Encontrar correlaciones
+```{r}
+
+AS <-findAssocs(my_tdm, "covid", corlimit=0.2) 
+
+AS$covid
+```
+
+
+
+WordClouds
+```{r}
+set.seed(142)
+dark2 <- brewer.pal(6, "Dark2")
+wordcloud(names(freq), freq, max.words=35, rot.per=0.4, colors=dark2)
+```
+
+Visualizamos en forma de matriz los términos que aparecen en el wordcloud anterior
+```{r}
+m <- as.matrix(my_tdm)
+v <- sort(rowSums(m),decreasing=TRUE)
+head(v,35)
+```
+
+
+## Text Mining 2 (Topic Modelling)
+
+<div style="text-align: justify">
+En text mining normalmente tenemos colecciones de documentos, ya sean publicaciones de blogs o artículos de noticias,etc. los cuales queremos dividir en grupos naturales de forma que podamos entenderlos por separado. Topic modelling es un método para la clasificación sin supervisión de estos documentos, similar al clustering sobre datos numérico, el cual encuentra grupos naturales de items incluso cuando no estamos seguros de lo que estamos buscando.
+
+'Latent Dirichlet allocation'(LDA) es un método particularmente popular para ajustar uun 'Topic Model'. Trata cada documento como una mezcla de 'topics', y cada 'topic' como una mezcla de palabras. Esto permite a los documentos superponerse sobre otros en cuanto a contenido en lugar de tener que ser separados en grupos discretos, de forma que imita en cierta parte el uso natural del lenguaje.
+
+Siendo 'Latent Dirichlet allocation' uno de los algoritmos más comunes para 'topic modelin', podemos entenderlo teniendo en cuenta dos principios. 
+
+
+- Cada documento es una mezcla de 'topics'. Imaginamos que cada documento puede contener palabras de varios 'topics' en proporciones particulares. Por ejemplo, en un modelo de 2 'topics' podríamos decir "El 90% del Documento 1 es 90% topic A y 10% topic B, mientras que el Documento 2 es 30% topic A y 70% topic B."
+
+
+- Cada topic es una mezcla de palabras. Por ejemplo, podríamos imaginar un modelo de 2 'topics' de 'American news', con un topic para "politics" y otra para "entertainment". Las palabras más comunes en el topic de política podrían ser “President”, “Congress”, y “government”, mientras que el topic de entretenimiento podría estar formado por palabras como “movies”, “television”, y “actor”. Por otro lado, podrían haber palabras compartidas por los topics; una palabra como "budget" podría aparecer en los dos a la vez.
+
+En definitiva, LDA es un método matemático para estimar ambos principios al mismo tiempo: encontrar la mezcla de palabras que está asociada a cada topic, mientras que a la vez se determina la mezcla de topics que describe cada documento. 
+
+<div/>
+
+
+![Diagrama de flujo de 'text analysis'](https://www.tidytextmining.com/images/tmwr_0601.png)
+<div style="text-align: justify">
+Tal y como se muestra en la imagen anterior, el paquete de 'topic models' coge un 'Document-Term Matrix' como entrada y produce un modelo que puede ser ordenado por tidytext, de tal forma que pueda ser manipulado y visualizado con dplyr y ggplot2.
+
+
+
+
+A continuación vamos a aplicar Topic Modelling al conjunto de documentos del apartado 1 de TextMining.
+</div>
+
+```{r}
+library(tm)
+library(pdftools)
+library(stringr)
+library(stringi)
+library(ggplot2)
+library(RColorBrewer)
+library(wordcloud)
+library(topicmodels)
+library(tidytext)
+library(reshape2)
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+```
+
+
+```{r}
+directorio.textos <- file.path("C:", "pdfstextmining2021")
+directorio.textos
+dir(directorio.textos)
+```
+
+```{r}
+list.files <- DirSource(directorio.textos)
+
+texts <- lapply(list.files, pdf_text) 
+```
+```{r}
+length(texts)
+lapply(texts, length)
+
+```
+```{r}
+#Crear corpus
+my_corpus <- VCorpus(VectorSource(texts))
+my_corpus
+```
+```{r}
+#Definimos la función to_TDM que transforma un corpus en una matriz TDM (Term Document Matrix)
+to_TDM <- function(my_corpus){
+  my_tdm <- DocumentTermMatrix(my_corpus, 
+                                   control = 
+                                     list(removePunctuation = TRUE,
+                                          stopwords = TRUE,
+                                          tolower = TRUE,
+                                          stemming = FALSE,
+                                          removeNumbers = TRUE,
+                                          bounds = list(global = c(3, Inf))))
+}         
+```
+
+```{r}
+#Convertimos a TDM el corpus
+my_tdm <- to_TDM(my_corpus)
+```
+
+La función LDA devuelve un un objeto que contiene todos los detalles del ajuste del modelo, como cuántas palabras están asociadas con topics y cómo los topics están asociados con los documentos
+
+```{r}
+# set a seed so that the output of the model is predictable
+ap_lda <- LDA(my_tdm, k = 3, control = list(seed = 1234))
+ap_lda
+```
+El paquete tidytext proporciona el siguiente método para extraer las probabilidades de los tópicos y las palabras.
+
+```{r}
+ap_topics <- tidy(ap_lda, matrix = "beta")
+ap_topics
+```
+
+A partir del resultado anterior podemos decir que el término "access" tiene 1.860677e-03 de probabilidad de ser generado en el topic 1, pero una probabilidad de 6.650884e-03 de ser generado en el topic 2.
+
+
+```{r}
+ap_top_terms <- ap_topics %>%
+  group_by(topic) %>%
+  slice_max(beta, n = 10) %>% 
+  ungroup() %>%
+  arrange(topic, -beta)
+
+ap_top_terms %>%
+  mutate(term = reorder_within(term, beta, topic)) %>%
+  ggplot(aes(beta, term, fill = factor(topic))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ topic, scales = "free") +
+  scale_y_reordered()
+```
+<div style="text-align: justify">
+Gracias a esta visualización podemos entender mejor los topics extraídos de los documentos. Las palabras más comunes en el topic 1 fueron "conspiracy", "covid", "accessed" y "theories", lo que hace pensar que lo que sugiere el documento es que el covid es una teoría conspiratoria. Por otro lado, las palabras más comunes en el topic 2 fueron "scientists", "public", "virus" y "health", lo que hace pensar que lo que sugiere el documento es que la salud pública y los científicos tuvieron relevancia con el virus, y por último, las palabras más comunes en el topic 3 fueron "vaccine", "public", "health" y "misinformation", lo que hace pensar que lo que sugiere el documento es que hay mucha desinformación acerca de las vacunas entre la gente.
+</div>
+
+```{r}
+ap_lda_2 <- LDA(my_tdm, k = 2, control = list(seed = 1234))
+ap_lda_2
+ap_topics_2 <- tidy(ap_lda_2, matrix = "beta")
+ap_topics_2
+```
+
+<div style="text-align: justify">
+Como alternativa, se pueden usar los términos que tuvieron la mayor diferencia en 'beta' entre los topics 1 y 2. Esto se puede estimar basándonos en el log ratio de los 2. Para restringirlo a un set de palabras muy relevantes podemos filtrar por palabras muy relativamente comunes, que son aquellas con un 'beta' mayor que 1/1000 por lo menos en un topic.
+</div>
+
+```{r}
+beta_wide <- ap_topics_2 %>%
+  mutate(topic = paste0("topic", topic)) %>%
+  pivot_wider(names_from = topic, values_from = beta) %>% 
+  filter(topic1 > .001 | topic2 > .001) %>%
+  mutate(log_ratio = log2(topic2 / topic1))
+
+beta_wide
+```
+
+Y por último visualizamos las palabras con las diferencias más grandes observadas entre los dos topics en la siguiente gráfica:
+
+
+```{r}
+beta_wide %>%
+  group_by(direction = log_ratio > 0) %>%
+  slice_max(abs(log_ratio), n = 10) %>% 
+  ungroup() %>%
+  mutate(term = reorder(term, log_ratio)) %>%
+  ggplot(aes(log_ratio, term)) +
+  geom_col() +
+  labs(x = "Log2 ratio of beta in topic 2 / topic 1", y = NULL)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

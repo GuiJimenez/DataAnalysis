@@ -1,0 +1,233 @@
+# Reglas de asociación
+
+
+1.Descargar a local el dataset consumo.csv (en CV).
+```{r}
+library(readr)
+library(tidyverse)
+library(arules)
+library(arulesViz)
+
+consumo <- read_csv("consumo.csv")
+```
+2.Analizar la estructura, tipo,… del dataset.
+```{r}
+str(consumo)
+# con str vemos que se trata de un spec_tbl_df (subclase de data frame) con 21293 filas y 4 columnas (Date,Time,Transaction,Item)
+```
+3. Analizar significado, estructura, tipo,… de cada columna.
+```{r}
+str(consumo$Date)
+# La primera columna corresponde a la fecha (de tipo Date) en la que se ha realizado la compra (transacción)
+str(consumo$Time)
+# La segunda columna corresponde a la hora (de tipo num en formato 'hms'(horas,minutos,segundos)) en la que se realizó la compra (transacción)
+str(consumo$Transaction)
+# La tercera columna corresponde al número de transacción (de tipo num). Se puede apreciar que en varias filas se repite el número de transacción, esto se debe a que a una misma transacción se le asignan varios Items(4ª columna del data.frame), simulando así un "carrito de la compra"
+str(consumo$Item)
+# En esta cuarta columna se ven representados los items (de tipo char) asociados a las transacciones (compras)
+```
+4. Comandos para ver las primeras filas y las últimas.
+```{r}
+# Comando para ver las primeras filas
+head(consumo)
+
+# Comando para ver las últimas filas
+tail(consumo)
+```
+5. Cambiar los nombres de las columnas: Fecha,Hora, IDcomprador,ProductoComprado.
+```{r}
+consumo <- consumo %>% rename(Fecha=Date, Hora=Time, IDcomprador=Transaction, ProductoComprado=Item)
+
+
+```
+
+6. Hacer un resumen (summary) del dataset y analizar toda la información detalladamente que devuelve el comando.
+```{r}
+summary(consumo)
+#En el caso de la columna fecha podemos observar que la máxima (última fecha) es el día 09-04-2017, o por ejemplo que la menor fecha(primera fecha) en la que se realizó una compra en este data frame fue el día 30-10-2016
+
+#En el caso de la hora, podemos observar que tenemos 21293 horas en formato hms(horas,minutos,segundos)
+
+#En la columna IDComprador se observa que contiene un rango de valores comprendido entre el 1 y el 9684, siendo la mediana el valor 5067.
+
+#Y por último, en el caso de la columna de ProductoComprado, tenemos 21293 filas con datos de tipo character.
+```
+7.Implementar una función que usando funciones vectoriales de R (apply, tapply, sapply,…) te devuelva si hay valores NA (mirar valores desconocidos como vienen en el dataset) en las columnas del dataset, si así lo fuera elminarlos del dataset pero guardarlos en un dataset_auxiliar.
+```{r}
+na.in.dataframe <-function(consumo){
+  hay.nas <- lapply(consumo,function(x) {"NONE" %in% x} )  
+  dataframe.sin.nas <- consumo %>% filter(ProductoComprado!="NONE")
+  posiciones <- which(consumo$ProductoComprado=="NONE")
+  
+return(list(hay.nas,dataframe.sin.nas,posiciones))  
+}
+na.in.dataframe(consumo)
+consumoSinNA <- na.in.dataframe(consumo)[[2]]
+```
+
+8. Calcular número de filas del dataset
+```{r}
+nFilas <- nrow(consumoSinNA)
+nFilas
+```
+9. Calcula en cuántas fechas distintas se han realizado ventas.
+```{r}
+nFechasDistintas <- consumoSinNA %>% group_by(Fecha) %>% summarise(n=n())
+nFechas <- length(nFechasDistintas$Fecha)
+nFechas
+```
+10. Calcula cuántos compradores distintos hay en el dataset.
+```{r}
+nCompradoresDistintos <- consumoSinNA %>% group_by(IDcomprador) %>% summarise(nComp = n())
+nCompradores <- length(nCompradoresDistintos$IDcomprador)
+nCompradores
+```
+11. Calcula cuántos productos distintos se han vendido. ¿Cuales son los 10 más vendidos? Visualiza con algún gráfico.
+
+```{r}
+nProductosDistintos <- consumoSinNA %>% group_by(ProductoComprado) %>% summarise(nVentas = n())
+nProductos <- length(nProductosDistintos$ProductoComprado)
+nProductos
+nProductosDistintos <- nProductosDistintos %>% arrange(desc(nVentas))
+TopTenProductos <- nProductosDistintos[1:10,]
+TopTenProductos
+
+g1 <- TopTenProductos %>%
+    ggplot(aes(x=reorder(ProductoComprado,-nVentas),y=nVentas, fill=nVentas)) +  geom_bar(stat = "identity") +ggtitle("Top 10 Productos más vendidos")+theme(plot.title = element_text(face="bold"))+labs(x="Productos", y ="Ventas")+theme(axis.line.x = element_line(color = "black"))+theme(axis.line.y = element_line(color = "black"))+theme(panel.grid.major.y = element_line(linetype = "dotted",colour = "grey"))+theme(panel.background = element_rect("white"))+theme(axis.text.x = element_text(angle = 14))+scale_fill_gradient(low = "orange",high = "red")
+g1
+```
+12. Calcula las ventas por franjas y visualiza.
+```{r}
+aux <- consumoSinNA
+aux$Hora <- (as.POSIXlt(consumoSinNA$Hora) %>% format("%H"))
+
+
+ventasPorFranja <-  aux %>% 
+  group_by(Hora) %>%
+  summarise(n=n()) %>%
+  arrange(desc(Hora))
+
+ggplot(ventasPorFranja, aes(x=Hora, y=n)) +
+geom_bar(stat = "identity") + theme(axis.text.x=element_text(angle = -90, hjust = 0))
+
+```
+
+13. Separa la fecha en año, mes y día. Obten qué años, meses y días hay más ventas con el objetivo de tener más personal en esas fechas. Visualiza las ventas acumuladas por meses.
+
+```{r}
+aux <- consumoSinNA
+aux <- mutate(aux,
+       año = aux$Fecha, mes=aux$Fecha, dia=aux$Fecha)
+
+aux$año <- as.numeric(format(aux$Fecha,'%Y'))
+aux$mes <- format(aux$Fecha,'%m')
+aux$dia <- format(aux$Fecha,'%d')
+
+
+ventasPorAño <-  aux %>% 
+  group_by(año) %>%
+  summarise(n=n()) %>%
+  arrange(desc(n))
+ventasPorAño
+
+ventasPorMes <-  aux %>% 
+  group_by(mes) %>%
+  summarise(n=n()) %>%
+  arrange(desc(n))
+head(ventasPorMes)
+
+ventasPorDia <-  aux %>% 
+  group_by(dia) %>%
+  summarise(n=n()) %>%
+  arrange(desc(n))
+head(ventasPorDia)
+
+
+ggplot(ventasPorMes, aes(x=mes, y=n)) +
+geom_bar(stat = "identity") + theme(axis.text.x=element_text(angle = -90, hjust = 0))
+
+```
+
+14. Usa split para construir a partir de dataset una lista con nombre lista.compra.usuarios en la que cada elemento de la lista es cada comprador junto con todos los productos que ha comprado
+```{r}
+consumoSinNASplit <- split(consumoSinNA, f=consumoSinNA$IDcomprador)
+class(consumoSinNASplit)
+
+lista.compra.usuarios <- lapply(consumoSinNASplit,function(x){x$ProductoComprado})
+
+class(lista.compra.usuarios)
+lista.compra.usuarios[1:9]
+```
+
+15. Hacer summary de lista.compra.usuarios
+```{r}
+#He hecho el summary de los 20 primeros porque si lo hiciera de la lista entera aparecerían unas 9000 filas
+summary(lista.compra.usuarios[1:20])
+```
+
+
+16. Contar cuántos usuarios hay en la lista lista.compra.usuarios
+```{r}
+length(lista.compra.usuarios)
+```
+
+17. Convertir a tipo de datos transacciones. Guardar en Tlista.compra.usuarios.
+```{r}
+
+Tlista.compra.usuarios <- as(lista.compra.usuarios,"transactions")
+
+```
+
+18. Hacer inspect de los dos primeros valores de Tlista.compra.usuarios.
+```{r}
+inspect(Tlista.compra.usuarios[1:2])
+```
+
+19. Buscar ayuda de itemFrequencyPlot para visualizar las 10 transacciones más frecuentes.
+```{r}
+itemFrequencyPlot(Tlista.compra.usuarios, topN = 10, col = rainbow(10))
+```
+
+20. Generar las reglas de asociación con 80% de confianza y 15% de soporte. (varias estos úmbrales si no son adecuadas las reglas que obtienes - demasiadas y no acaba o pocas)
+```{r}
+mis_reglas <- apriori(Tlista.compra.usuarios,parameter = list(supp=0.05, conf=0.3))
+```
+
+21. Ver las reglas generadas y ordenalas por lift. Guarda el resultado en una variable nueva.
+```{r}
+inspect(mis_reglas) #vemos la reglas generadas
+mis_reglas_ordenadas <- sort(mis_reglas,by="lift",decreasing = TRUE) #ordenamos las reglas por lift
+inspect(mis_reglas_ordenadas) #vemos las reglas ordenadas por lift
+```
+
+22. Elimina todas las reglas redundantes.
+```{r}
+reglas_no_redundantes <- mis_reglas_ordenadas[!is.redundant(x = mis_reglas_ordenadas, measure = "confidence")]
+
+```
+
+23.Dibuja las reglas ordenadas y no redundantes usando paquete arulesViz. Si son muchas visualiza las 20 primeras.
+```{r}
+plot(reglas_no_redundantes, engine = "htmlwidget")
+```
+
+24.(Detección de anomalias)
+```{r}
+inspect(reglas_no_redundantes)
+aux1 <- lapply(lista.compra.usuarios, function(x){"Pastel" %in% x})
+sum(unlist(aux1))
+
+aux2 <- lapply(lista.compra.usuarios, function(x){!("Café" %in% x)})
+sum(unlist(aux2))
+#NO CUMPLEN LA REGLA LOS SIGUIENTES IDCLIENTES:
+names(lista.compra.usuarios[unlist(aux1) &  unlist(aux2)])
+```
+
+<div style="text-align: justify">
+Los productos más vendidos son café, pan, pastel y te.
+
+Una de las reglas que nos ha salido es; si la persona compra pastel, entonces, compra café. En este caso puede ser significativo para la política de ventas de la empresa, al encontrarnos con 0.1 de soporte y un 0.54 de confidence.
+
+Otra medida interesante seria reforzar o facilitar la compra de cafe y de pan, puesto que los clientes que entran al local suelen comprar estos 2 productos.
+
+<div/>
